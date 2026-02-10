@@ -1,0 +1,8 @@
+{
+  "name": "ConsultantHub",
+  "description": "A premium platform to find, connect, and book verified consultants across various fields like legal, finance, study abroad, and business. Features an AI-powered assistant to match you with the perfect expert.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}

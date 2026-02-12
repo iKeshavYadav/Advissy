@@ -1,14 +1,21 @@
 
 import React from 'react';
-import { Star, ShieldCheck, Clock, DollarSign } from 'lucide-react';
+import { Star, ShieldCheck, Clock, DollarSign, Heart } from 'lucide-react';
 import { Consultant } from '../types';
 
 interface ConsultantCardProps {
   consultant: Consultant;
   onBook: (id: string) => void;
+  isSaved?: boolean;
+  onToggleSave?: (id: string) => void;
 }
 
-export const ConsultantCard: React.FC<ConsultantCardProps> = ({ consultant, onBook }) => {
+export const ConsultantCard: React.FC<ConsultantCardProps> = ({ 
+  consultant, 
+  onBook, 
+  isSaved = false, 
+  onToggleSave 
+}) => {
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow overflow-hidden group">
       <div className="relative h-48 overflow-hidden">
@@ -17,11 +24,29 @@ export const ConsultantCard: React.FC<ConsultantCardProps> = ({ consultant, onBo
           alt={consultant.name} 
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
         />
-        {consultant.isVerified && (
-          <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
-            <ShieldCheck className="w-4 h-4 text-orange-600" />
-            <span className="text-xs font-bold text-gray-800">Verified</span>
-          </div>
+        <div className="absolute top-4 left-4 flex gap-2">
+          {consultant.isVerified && (
+            <div className="bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
+              <ShieldCheck className="w-4 h-4 text-orange-600" />
+              <span className="text-xs font-bold text-gray-800">Verified</span>
+            </div>
+          )}
+        </div>
+        
+        {onToggleSave && (
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleSave(consultant.id);
+            }}
+            className={`absolute top-4 right-4 p-2.5 rounded-xl transition-all shadow-sm border ${
+              isSaved 
+              ? 'bg-orange-600 border-orange-500 text-white' 
+              : 'bg-white/90 backdrop-blur-sm border-white/20 text-gray-400 hover:text-orange-600'
+            }`}
+          >
+            <Heart className={`w-4 h-4 ${isSaved ? 'fill-current' : ''}`} />
+          </button>
         )}
       </div>
       

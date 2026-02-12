@@ -41,8 +41,9 @@ export const PhoneCall: React.FC<PhoneCallProps> = ({ consultant, onEndCall }) =
         audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
         inputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
 
+        // Corrected model to gemini-2.5-flash-native-audio-preview-12-2025
         const sessionPromise = ai.live.connect({
-          model: 'gemini-2.5-flash-native-audio-preview-09-2025',
+          model: 'gemini-2.5-flash-native-audio-preview-12-2025',
           config: {
             responseModalities: [Modality.AUDIO],
             speechConfig: {

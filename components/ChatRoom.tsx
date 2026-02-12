@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, X, ArrowLeft, Loader2, Sparkles } from 'lucide-react';
+import { Send, X, ArrowLeft, Loader2, Sparkles, Trash2, Clock } from 'lucide-react';
 import { Consultant } from '../types';
 import { createConsultantChat } from '../services/geminiService';
 import { Chat, GenerateContentResponse } from '@google/genai';
@@ -16,18 +16,52 @@ interface ChatRoomProps {
 }
 
 export const ChatRoom: React.FC<ChatRoomProps> = ({ consultant, onClose }) => {
-  const [messages, setMessages] = useState<Message[]>([
-    { role: 'model', text: `Hello! I'm ${consultant.name}. I've reviewed your request and I'm ready to help you with your ${consultant.category} needs. What's on your mind?` }
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
+  const [duration, setDuration] = useState(0);
   const chatRef = useRef<Chat | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  const storageKey = `chat_history_${consultant.id}`;
+
   useEffect(() => {
-    chatRef.current = createConsultantChat(consultant);
-  }, [consultant]);
+    const timer = window.setInterval(() => {
+      setDuration(d => d + 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    // Load history from localStorage
+    const savedMessages = localStorage.getItem(storageKey);
+    let initialMessages: Message[] = [];
+
+    if (savedMessages) {
+      try {
+        initialMessages = JSON.parse(savedMessages);
+      } catch (e) {
+        console.error("Failed to parse chat history", e);
+      }
+    }
+
+    if (initialMessages.length === 0) {
+      initialMessages = [
+        { role: 'model', text: `Hello! I'm ${consultant.name}. I've reviewed your request and I'm ready to help you with your ${consultant.category} needs. What's on your mind?` }
+      ];
+    }
+
+    setMessages(initialMessages);
+
+    // Initialize Gemini Chat with formatted history
+    const geminiHistory = initialMessages.map(m => ({
+      role: m.role,
+      parts: [{ text: m.text }]
+    }));
+
+    chatRef.current = createConsultantChat(consultant, geminiHistory);
+  }, [consultant, storageKey]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -35,13 +69,41 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ consultant, onClose }) => {
     }
   }, [messages, isTyping]);
 
+  // Persist messages to localStorage whenever they change
+  useEffect(() => {
+    if (messages.length > 0) {
+      localStorage.setItem(storageKey, JSON.stringify(messages));
+    }
+  }, [messages, storageKey]);
+
+  const formatDuration = (s: number) => {
+    const mins = Math.floor(s / 60);
+    const secs = s % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const handleClearHistory = () => {
+    if (window.confirm("Are you sure you want to clear this chat history?")) {
+      localStorage.removeItem(storageKey);
+      const resetMessage: Message[] = [
+        { role: 'model', text: `History cleared. Hello! I'm ${consultant.name}. How can I help you today?` }
+      ];
+      setMessages(resetMessage);
+      chatRef.current = createConsultantChat(consultant, resetMessage.map(m => ({
+        role: m.role,
+        parts: [{ text: m.text }]
+      })));
+    }
+  };
+
   const handleSend = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!input.trim() || isLoading || !chatRef.current) return;
 
     const userText = input.trim();
     setInput('');
-    setMessages(prev => [...prev, { role: 'user', text: userText }]);
+    const updatedMessages = [...messages, { role: 'user' as const, text: userText }];
+    setMessages(updatedMessages);
     setIsLoading(true);
     setIsTyping(true);
 
@@ -80,7 +142,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ consultant, onClose }) => {
 
   return (
     <div className="fixed inset-0 z-[200] bg-white flex flex-col md:flex-row h-screen overflow-hidden">
-      {/* Sidebar - Consultant Info (Hidden on small screens) */}
+      {/* Sidebar - Consultant Info */}
       <div className="hidden md:flex w-80 bg-gray-50 border-r border-gray-100 flex-col p-8">
         <button onClick={onClose} className="mb-8 flex items-center gap-2 text-gray-500 hover:text-orange-600 transition-colors font-medium">
           <ArrowLeft className="w-4 h-4" /> Back to Dashboard
@@ -92,10 +154,15 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ consultant, onClose }) => {
             <div className="absolute -bottom-2 -right-2 bg-green-500 border-4 border-white w-6 h-6 rounded-full" />
           </div>
           <h2 className="text-xl font-bold text-gray-900">{consultant.name}</h2>
-          <p className="text-sm text-orange-600 font-semibold mb-6">{consultant.title}</p>
+          <p className="text-sm text-orange-600 font-semibold mb-2">{consultant.title}</p>
+          
+          <div className="flex items-center justify-center gap-2 bg-white border border-gray-100 px-3 py-1.5 rounded-xl shadow-sm inline-flex">
+            <Clock className="w-3.5 h-3.5 text-gray-400" />
+            <span className="text-sm font-mono font-bold text-gray-700">{formatDuration(duration)}</span>
+          </div>
         </div>
 
-        <div className="mt-8 space-y-6">
+        <div className="mt-8 space-y-6 flex-1">
           <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
             <h4 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-2">Current Session</h4>
             <div className="flex items-center gap-2 text-sm text-gray-700 font-medium">
@@ -109,6 +176,13 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ consultant, onClose }) => {
             </p>
           </div>
         </div>
+
+        <button 
+          onClick={handleClearHistory}
+          className="mt-auto flex items-center justify-center gap-2 w-full py-3 text-sm font-bold text-gray-400 hover:text-red-500 transition-colors"
+        >
+          <Trash2 className="w-4 h-4" /> Clear History
+        </button>
       </div>
 
       {/* Main Chat Area */}
@@ -118,16 +192,24 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ consultant, onClose }) => {
           <div className="flex items-center gap-3">
             <img src={consultant.imageUrl} className="w-10 h-10 rounded-xl object-cover" alt={consultant.name} />
             <div>
-              <h3 className="text-sm font-bold">{consultant.name}</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold">{consultant.name}</h3>
+                <span className="text-[10px] font-mono font-bold text-orange-600 bg-orange-50 px-1.5 rounded">{formatDuration(duration)}</span>
+              </div>
               <div className="flex items-center gap-1">
                 <span className="w-2 h-2 bg-green-500 rounded-full" />
                 <span className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Online</span>
               </div>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-900">
-            <X className="w-6 h-6" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={handleClearHistory} className="p-2 text-gray-400 hover:text-red-500">
+              <Trash2 className="w-5 h-5" />
+            </button>
+            <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-900">
+              <X className="w-6 h-6" />
+            </button>
+          </div>
         </div>
 
         {/* Messages */}

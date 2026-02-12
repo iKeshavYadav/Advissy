@@ -42,7 +42,7 @@ export const getAIAssistance = async (userProblem: string) => {
   }
 };
 
-export const createConsultantChat = (consultant: Consultant): Chat => {
+export const createConsultantChat = (consultant: Consultant, history: any[] = []): Chat => {
   return ai.chats.create({
     model: 'gemini-3-flash-preview',
     config: {
@@ -51,5 +51,6 @@ export const createConsultantChat = (consultant: Consultant): Chat => {
       A client has just messaged you for a consultation. Be professional, empathetic, and provide actionable advice. 
       Keep your responses relatively concise but thorough enough to be valuable. Use Markdown for formatting.`,
     },
+    history: history,
   });
 };

@@ -1,6 +1,6 @@
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Mic, MicOff, Video, VideoOff, PhoneOff, User, MessageSquare, Loader2 } from 'lucide-react';
+import { Mic, MicOff, Video, VideoOff, PhoneOff, User, MessageSquare, Loader2, Clock } from 'lucide-react';
 import { GoogleGenAI, Modality } from '@google/genai';
 import { Consultant } from '../types';
 import { createBlob, decodeAudioData, decodeBase64 } from '../services/liveService';
@@ -15,6 +15,7 @@ export const VideoCall: React.FC<VideoCallProps> = ({ consultant, onEndCall }) =
   const [isVideoOff, setIsVideoOff] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [duration, setDuration] = useState(0);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const sessionRef = useRef<any>(null);
@@ -22,6 +23,16 @@ export const VideoCall: React.FC<VideoCallProps> = ({ consultant, onEndCall }) =
   const inputAudioContextRef = useRef<AudioContext | null>(null);
   const nextStartTimeRef = useRef<number>(0);
   const sourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
+
+  useEffect(() => {
+    let timer: number;
+    if (isConnected) {
+      timer = window.setInterval(() => {
+        setDuration(d => d + 1);
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [isConnected]);
 
   useEffect(() => {
     const startCall = async () => {
@@ -40,7 +51,7 @@ export const VideoCall: React.FC<VideoCallProps> = ({ consultant, onEndCall }) =
         inputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
 
         const sessionPromise = ai.live.connect({
-          model: 'gemini-2.5-flash-native-audio-preview-09-2025',
+          model: 'gemini-2.5-flash-native-audio-preview-12-2025',
           config: {
             responseModalities: [Modality.AUDIO],
             speechConfig: {
@@ -117,6 +128,12 @@ export const VideoCall: React.FC<VideoCallProps> = ({ consultant, onEndCall }) =
     };
   }, []);
 
+  const formatDuration = (s: number) => {
+    const mins = Math.floor(s / 60);
+    const secs = s % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
   return (
     <div className="fixed inset-0 z-[200] bg-black flex flex-col items-center justify-center">
       {/* Background Consultant Image (Blurred) */}
@@ -132,12 +149,26 @@ export const VideoCall: React.FC<VideoCallProps> = ({ consultant, onEndCall }) =
             className={`w-full h-full object-cover transition-all duration-1000 ${isSpeaking ? 'scale-110 blur-[2px]' : 'scale-100'}`} 
             alt={consultant.name} 
           />
-          <div className="absolute bottom-0 inset-x-0 p-8 bg-gradient-to-t from-black/80 to-transparent">
-            <h2 className="text-3xl font-bold text-white mb-2">{consultant.name}</h2>
-            <div className="flex items-center gap-2">
-              <span className={`w-3 h-3 rounded-full ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`} />
-              <p className="text-gray-300 font-medium">{isConnected ? (isSpeaking ? 'Speaking...' : 'Listening...') : 'Connecting...'}</p>
+          <div className="absolute bottom-0 inset-x-0 p-8 bg-gradient-to-t from-black/90 to-transparent flex justify-between items-end">
+            <div>
+              <h2 className="text-3xl font-bold text-white mb-2">{consultant.name}</h2>
+              <div className="flex items-center gap-2">
+                <span className={`w-3 h-3 rounded-full ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`} />
+                <p className="text-gray-300 font-medium">{isConnected ? (isSpeaking ? 'Speaking...' : 'Listening...') : 'Connecting...'}</p>
+              </div>
             </div>
+
+            {isConnected && (
+              <div className="flex flex-col items-end gap-1">
+                <div className="flex items-center gap-2 bg-red-600/20 border border-red-600/30 px-3 py-1 rounded-full">
+                  <div className="w-2 h-2 bg-red-600 rounded-full animate-pulse" />
+                  <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">Live</span>
+                </div>
+                <div className="text-white font-mono text-2xl font-bold tracking-tighter drop-shadow-lg">
+                  {formatDuration(duration)}
+                </div>
+              </div>
+            )}
           </div>
           
           {/* Speaking Indicator Rings */}
@@ -173,6 +204,10 @@ export const VideoCall: React.FC<VideoCallProps> = ({ consultant, onEndCall }) =
           <div className="flex-1 bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10 text-white overflow-hidden flex flex-col">
             <h3 className="text-sm font-bold uppercase tracking-wider text-orange-500 mb-4">Consultation Details</h3>
             <div className="space-y-4 text-sm text-gray-400">
+              <div className="flex items-center gap-3">
+                <Clock className="w-4 h-4" />
+                <span>Started: {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+              </div>
               <div className="flex items-center gap-3">
                 <MessageSquare className="w-4 h-4" />
                 <span>Encrypted HD Session</span>
